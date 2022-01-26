@@ -12,7 +12,6 @@
  */
 package org.openhab.binding.mihackedtempsensor.internal;
 
-import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.DEVICE_STATUS_UUID;
 import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.MI_PATH_PATTERN;
 import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.SENSOR_TYPE_ID;
 
@@ -27,9 +26,11 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
 import org.bluez.Adapter1;
+import org.bluez.exceptions.BluezFailedException;
+import org.bluez.exceptions.BluezNotAuthorizedException;
+import org.bluez.exceptions.BluezNotReadyException;
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
-import org.freedesktop.dbus.DBusMap;
 import org.freedesktop.dbus.DBusMatchRule;
 import org.freedesktop.dbus.DBusPath;
 import org.freedesktop.dbus.ObjectPath;
@@ -38,12 +39,14 @@ import org.freedesktop.dbus.exceptions.DBusException;
 import org.freedesktop.dbus.exceptions.DBusExecutionException;
 import org.freedesktop.dbus.interfaces.DBusSigHandler;
 import org.freedesktop.dbus.interfaces.ObjectManager;
+import org.freedesktop.dbus.interfaces.Properties;
 import org.freedesktop.dbus.messages.DBusSignal;
 import org.freedesktop.dbus.types.Variant;
 import org.openhab.core.thing.Bridge;
 import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
+import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
@@ -64,25 +67,92 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
             "InterfacesAdded");
     private final DBusSigHandler<DBusSignal> sigHandler = this::handleSignal;
     private final Map<String, SensorValues> cachedValues = new HashMap<>();
+    private final Object mutex = new Object();
 
     @Nullable
     private ScheduledFuture<?> backgroundRunningFuture = null;
     @Nullable
     private MiHackTempSensorDiscoveryService discoveryService = null;
+    @Nullable
+    private DBusConnection connection;
 
     public MiHackedTempSensorBridgeHandler(final Bridge bridge) {
         super(bridge);
     }
 
     public void initialize() {
-        logger.info("initialise");
+
+        updateStatus(ThingStatus.UNKNOWN);
+
+        try {
+            connection = DBusConnection.getConnection(DBusConnection.DBusBusType.SYSTEM);
+        } catch (DBusException e) {
+            logger.error("Failed to connect to DBus", e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Failed to connect to dbus");
+            return;
+        }
+
+        try {
+            connection.addGenericSigHandler(matchingRule, sigHandler);
+        } catch (DBusException e) {
+            logger.error("Failed to adding signal handler", e);
+            updateStatus(ThingStatus.OFFLINE, ThingStatusDetail.COMMUNICATION_ERROR, "Failed to add signal handler");
+            return;
+        }
+
         updateStatus(ThingStatus.ONLINE);
-        backgroundRunningFuture = scheduler.scheduleWithFixedDelay(this::pollDevices, 30, 30, TimeUnit.SECONDS);
+        backgroundRunningFuture = scheduler.scheduleWithFixedDelay(this::pollDevices, 10, 30, TimeUnit.SECONDS);
     }
 
     public void dispose() {
-        if (null != backgroundRunningFuture) {
-            logger.info("Cancelling background thread: {}", backgroundRunningFuture.cancel(false));
+
+        synchronized (mutex) {
+
+            if (null != backgroundRunningFuture) {
+                logger.info("Cancelling background thread: {}", backgroundRunningFuture.cancel(false));
+            }
+
+            stopDiscovery();
+
+            try {
+                if (null != connection) {
+                    connection.removeGenericSigHandler(matchingRule, sigHandler);
+                }
+            } catch (DBusException e) {
+                logger.error("Failed to remove signal handler", e);
+            }
+
+            try {
+                connection.close();
+            } catch (IOException e) {
+                logger.error("Failed to close connection to DBus", e);
+            }
+
+            connection = null;
+        }
+    }
+
+    private void stopDiscovery() {
+        synchronized (mutex) {
+            try {
+                if (null != connection) {
+                    final Adapter1 adapter1 = connection.getRemoteObject("org.bluez", "/org/bluez/hci0",
+                            Adapter1.class);
+                    final Properties adapter1Properties = connection.getRemoteObject("org.bluez", "/org/bluez/hci0",
+                            Properties.class);
+                    Boolean isDiscovering = null;
+                    try {
+                        isDiscovering = adapter1Properties.Get("org.bluez.Adapter1", "Discovering");
+                        logger.debug("Stopping discovery");
+                        adapter1.StopDiscovery();
+                    } catch (BluezNotReadyException | BluezFailedException | BluezNotAuthorizedException
+                            | DBusExecutionException e) {
+                        logger.error("Failed to stopDiscovery, Discovering={}", isDiscovering, e);
+                    }
+                }
+            } catch (DBusException e) {
+                logger.error("Failed to get adapter interface to stopDiscovery", e);
+            }
         }
     }
 
@@ -90,9 +160,10 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
         try {
             final Object[] parameters = dBusSignal.getParameters();
             if (isMiTempSensor(parameters)) {
+                @SuppressWarnings("unchecked")
                 final Map<String, Map<String, Variant<?>>> map = (Map<String, Map<String, Variant<?>>>) parameters[1];
                 try {
-                    onDeviceUpdate(readProperties(map));
+                    onDeviceUpdate(SensorValues.create(map));
                 } catch (IllegalArgumentException e) {
                     logger.warn("Failed to extract device properties", e);
                 }
@@ -104,27 +175,38 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
     }
 
     private void pollDevices() {
-        logger.debug("Polling");
-        try (DBusConnection cn = DBusConnection.getConnection(DBusConnection.DBusBusType.SYSTEM)) {
+
+        synchronized (mutex) {
+
+            if (null == connection) {
+                return;
+            }
 
             try {
-                cn.addGenericSigHandler(matchingRule, sigHandler);
-                final ObjectManager objectManager = cn.getRemoteObject("org.bluez", "/", ObjectManager.class);
+                final ObjectManager objectManager = connection.getRemoteObject("org.bluez", "/", ObjectManager.class);
 
+                logger.debug("Querying object manager");
                 final Map<DBusPath, Map<String, Map<String, Variant<?>>>> dBusPathMapMap = objectManager
                         .GetManagedObjects();
 
                 dBusPathMapMap.forEach((k, v) -> {
                     if (MI_PATH_PATTERN.matcher(k.getPath()).matches()) {
                         try {
-                            onDeviceUpdate(readProperties(v));
+                            onDeviceUpdate(SensorValues.create(v));
                         } catch (IllegalArgumentException e) {
                             logger.warn("Failed to extract device properties", e);
                         }
                     }
                 });
+            } catch (DBusException e) {
+                logger.error("Failed to query existing devices", e);
+            }
 
-                final Adapter1 adapter1 = cn.getRemoteObject("org.bluez", "/org/bluez/hci0", Adapter1.class);
+            try {
+                final Adapter1 adapter1 = connection.getRemoteObject("org.bluez", "/org/bluez/hci0", Adapter1.class);
+                final Properties adapter1Properties = connection.getRemoteObject("org.bluez", "/org/bluez/hci0",
+                        Properties.class);
+                Boolean isDiscovering = null;
 
                 Map<String, Variant<?>> filter = new HashMap<>();
 
@@ -132,28 +214,17 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
                 adapter1.SetDiscoveryFilter(filter);
 
                 try {
+                    logger.debug("Starting discovery");
+                    isDiscovering = adapter1Properties.Get("org.bluez.Adapter1", "Discovering");
                     adapter1.StartDiscovery();
-                    waitForDiscoveredDevices(10_000);
                 } catch (DBusExecutionException e) {
-                    logger.error("StartDiscovery failed: {}, {}", e.getType(), e.getMessage());
+                    logger.error("StartDiscovery failed: {}, {}, {}", isDiscovering, e.getType(), e.getMessage());
                 } finally {
-                    try {
-                        adapter1.StopDiscovery();
-                    } catch (DBusExecutionException e) {
-                        logger.error("StopDiscovery failed: {}, {}", e.getType(), e.getMessage());
-                    }
+                    scheduler.schedule(this::stopDiscovery, 10, TimeUnit.SECONDS);
                 }
-
-            } finally {
-                try {
-                    cn.removeGenericSigHandler(matchingRule, sigHandler);
-                } catch (DBusException e) {
-                    logger.error("removeGenericSignalHandler failed", e);
-                }
+            } catch (DBusException e) {
+                logger.error("Failed to poll devices", e);
             }
-
-        } catch (IOException | DBusException | DBusExecutionException e) {
-            logger.error("DBus poll failed", e);
         }
     }
 
@@ -184,13 +255,6 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
         }
     }
 
-    private static void waitForDiscoveredDevices(final int waitMs) {
-        try {
-            Thread.sleep(waitMs);
-        } catch (InterruptedException ignore) {
-        }
-    }
-
     private static boolean isMiTempSensor(final Object[] parameters) {
         for (Object parameter : parameters) {
             if (parameter instanceof ObjectPath) {
@@ -201,38 +265,6 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
             }
         }
         return false;
-    }
-
-    private static SensorValues readProperties(final Map<String, Map<String, Variant<?>>> objectProperties)
-            throws IllegalArgumentException {
-        final Map<String, Variant<?>> device1Properties = objectProperties.get("org.bluez.Device1");
-        if (null == device1Properties) {
-            throw new IllegalArgumentException("'org.bluez.Device1' key not found");
-        }
-
-        final String address = readProperty(device1Properties, "Address");
-        final Short rssi = readProperty(device1Properties, "RSSI");
-        final DBusMap<String, Variant<?>> serviceData = readProperty(device1Properties, "ServiceData");
-        byte[] data = readProperty(serviceData, DEVICE_STATUS_UUID);
-
-        if (data.length < 13) {
-            throw new IllegalArgumentException("Array to short for measured values: " + data.length);
-        }
-
-        float temperature = (float) ((data[7] & 0xFF) << 8 | data[6] & 0xFF) / 100.0f;
-        float humidity = (float) ((data[9] & 0xFF) << 8 | data[8] & 0xFF) / 100.0f;
-        int battery = data[12] & 0xFF;
-
-        return new SensorValues(address, rssi, temperature, humidity, battery);
-    }
-
-    private static <T> T readProperty(final Map<String, Variant<?>> properties, final String key) {
-        final Variant<?> variant = properties.get(key);
-        if (null == variant) {
-            throw new IllegalArgumentException("'" + key + "' not found");
-        }
-
-        return ((Variant<T>) variant).getValue();
     }
 
     public void addDeviceListener(final MiHackTempSensorDiscoveryService miHackTempSensorDiscoveryService) {
