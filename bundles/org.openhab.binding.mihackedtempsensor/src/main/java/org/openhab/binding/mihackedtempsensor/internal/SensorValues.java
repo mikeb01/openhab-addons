@@ -12,7 +12,13 @@
  */
 package org.openhab.binding.mihackedtempsensor.internal;
 
+import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.DEVICE_STATUS_UUID;
+
+import java.util.Map;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.freedesktop.dbus.DBusMap;
+import org.freedesktop.dbus.types.Variant;
 
 /**
  * @author Michael Barker - Initial contribution
@@ -32,6 +38,39 @@ public class SensorValues {
         this.temperature = temperature;
         this.humidity = humidity;
         this.batteryLevel = batteryLevel;
+    }
+
+    static SensorValues create(final Map<String, Map<String, Variant<?>>> objectProperties)
+            throws IllegalArgumentException {
+        final Map<String, Variant<?>> device1Properties = objectProperties.get("org.bluez.Device1");
+        if (null == device1Properties) {
+            throw new IllegalArgumentException("'org.bluez.Device1' key not found");
+        }
+
+        final String address = readProperty(device1Properties, "Address");
+        final Short rssi = readProperty(device1Properties, "RSSI");
+        final DBusMap<String, Variant<?>> serviceData = readProperty(device1Properties, "ServiceData");
+        byte[] data = readProperty(serviceData, DEVICE_STATUS_UUID);
+
+        if (data.length < 13) {
+            throw new IllegalArgumentException("Array to short for measured values: " + data.length);
+        }
+
+        float temperature = (float) ((data[7] & 0xFF) << 8 | data[6] & 0xFF) / 100.0f;
+        float humidity = (float) ((data[9] & 0xFF) << 8 | data[8] & 0xFF) / 100.0f;
+        int battery = data[12] & 0xFF;
+
+        return new SensorValues(address, rssi, temperature, humidity, battery);
+    }
+
+    static <T> T readProperty(final Map<String, Variant<?>> properties, final String key) {
+        final Variant<?> variant = properties.get(key);
+        if (null == variant) {
+            throw new IllegalArgumentException("'" + key + "' not found");
+        }
+
+        //noinspection unchecked
+        return ((Variant<T>) variant).getValue();
     }
 
     public String toString() {
