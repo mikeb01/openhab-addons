@@ -17,6 +17,9 @@ import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensor
 import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.CHANNEL_RSSI;
 import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.CHANNEL_TEMPERATURE;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.openhab.core.library.types.DecimalType;
@@ -36,8 +39,6 @@ import org.openhab.core.types.RefreshType;
 @NonNullByDefault
 public class MiHackedTempSensorHandler extends BaseThingHandler {
 
-    @Nullable
-    private MiHackedTempSensorConfiguration config;
     @Nullable
     private SensorValues sensorValues;
 
@@ -62,15 +63,16 @@ public class MiHackedTempSensorHandler extends BaseThingHandler {
 
     @Override
     public void initialize() {
-        config = getConfigAs(MiHackedTempSensorConfiguration.class);
         updateStatus(ThingStatus.ONLINE);
     }
 
     public void update(final SensorValues sensorValues) {
         this.sensorValues = sensorValues;
-        updateState(CHANNEL_TEMPERATURE, new DecimalType(sensorValues.getTemperature()));
+        updateState(CHANNEL_TEMPERATURE,
+                new DecimalType(BigDecimal.valueOf(sensorValues.getTemperature()).setScale(2, RoundingMode.HALF_EVEN)));
         updateState(CHANNEL_BATTERY_LEVEL, new DecimalType(sensorValues.getBatteryLevel()));
-        updateState(CHANNEL_HUMIDITY, new DecimalType(sensorValues.getHumidity()));
+        updateState(CHANNEL_HUMIDITY,
+                new DecimalType(BigDecimal.valueOf(sensorValues.getHumidity()).setScale(2, RoundingMode.HALF_EVEN)));
         updateState(CHANNEL_RSSI, new DecimalType(sensorValues.getRssi()));
     }
 }

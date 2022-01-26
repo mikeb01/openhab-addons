@@ -12,6 +12,8 @@
  */
 package org.openhab.binding.mihackedtempsensor.internal;
 
+import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.SENSOR_TYPE_ID;
+
 import java.util.Set;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
@@ -39,7 +41,7 @@ public class MiHackTempSensorDiscoveryService extends AbstractDiscoveryService i
     private MiHackedTempSensorBridgeHandler bridgeHandler = null;
 
     public MiHackTempSensorDiscoveryService() {
-        super(Set.of(MiHackedTempSensorBindingConstants.SENSOR_TYPE_ID), 45, false);
+        super(Set.of(SENSOR_TYPE_ID), 45, false);
     }
 
     protected void startScan() {
@@ -79,10 +81,10 @@ public class MiHackTempSensorDiscoveryService extends AbstractDiscoveryService i
     public void onDevice(final SensorValues sensorValues) {
         if (null != bridgeHandler) {
             final DiscoveryResult discoveryResult = DiscoveryResultBuilder
-                    .create(new ThingUID(MiHackedTempSensorBindingConstants.SENSOR_TYPE_ID, sensorValues.getUniqueId()))
+                    .create(new ThingUID(SENSOR_TYPE_ID, bridgeHandler.getThing().getUID(), sensorValues.getUniqueId()))
                     .withProperty("macAddress", sensorValues.getAddress())
-                    .withProperty("uniqueId", sensorValues.getUniqueId())
-                    .withBridge(bridgeHandler.getThing().getBridgeUID()).withRepresentationProperty("uniqueId").build();
+                    .withProperty("uniqueId", sensorValues.getUniqueId()).withBridge(bridgeHandler.getThing().getUID())
+                    .withRepresentationProperty("uniqueId").build();
 
             thingDiscovered(discoveryResult);
         }

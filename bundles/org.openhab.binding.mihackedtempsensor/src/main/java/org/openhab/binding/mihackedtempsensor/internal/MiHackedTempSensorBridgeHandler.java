@@ -13,7 +13,6 @@
 package org.openhab.binding.mihackedtempsensor.internal;
 
 import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.MI_PATH_PATTERN;
-import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensorBindingConstants.SENSOR_TYPE_ID;
 
 import java.io.IOException;
 import java.util.Collection;
@@ -47,7 +46,6 @@ import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.Thing;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
-import org.openhab.core.thing.ThingUID;
 import org.openhab.core.thing.binding.BaseBridgeHandler;
 import org.openhab.core.thing.binding.ThingHandlerService;
 import org.openhab.core.types.Command;
@@ -243,10 +241,10 @@ public class MiHackedTempSensorBridgeHandler extends BaseBridgeHandler {
             discoveryService.onDevice(sensorValues);
         }
 
-        final ThingUID thingUID = new ThingUID(SENSOR_TYPE_ID, sensorValues.getUniqueId());
+        final String uniqueId = sensorValues.getUniqueId();
         final List<Thing> things = getThing().getThings();
         for (Thing thing : things) {
-            if (Objects.equals(thing.getUID(), thingUID)) {
+            if (Objects.equals(thing.getUID().getId(), uniqueId)) {
                 final MiHackedTempSensorHandler handler = (MiHackedTempSensorHandler) thing.getHandler();
                 if (null != handler) {
                     handler.update(sensorValues);
