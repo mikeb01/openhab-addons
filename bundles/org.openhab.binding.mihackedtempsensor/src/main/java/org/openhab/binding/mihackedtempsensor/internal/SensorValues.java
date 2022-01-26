@@ -69,7 +69,7 @@ public class SensorValues {
             throw new IllegalArgumentException("'" + key + "' not found");
         }
 
-        //noinspection unchecked
+        // noinspection unchecked
         return ((Variant<T>) variant).getValue();
     }
 

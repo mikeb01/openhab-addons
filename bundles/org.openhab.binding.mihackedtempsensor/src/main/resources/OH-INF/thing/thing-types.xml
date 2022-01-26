@@ -38,16 +38,18 @@
 
 	<channel-type id="sensor-temperature">
 		<item-type>Number:Temperature</item-type>
-		<label>Sensor Temperature</label><!-- Use uppercase words, except prepositions. 2-3 words, max 25 chars -->
+		<label>Sensor Temperature</label>
 		<description>Temperature for MiHackedTempSensor</description>
 		<category>Temperature</category>
+		<state min="-127" max="125" pattern="%.2f °C" readOnly="true"/>
 	</channel-type>
 
 	<channel-type id="sensor-humidity">
-		<item-type>Number:Dimensionless</item-type>
-		<label>Sensor Humidity</label><!-- Use uppercase words, except prepositions. 2-3 words, max 25 chars -->
+		<item-type>Number</item-type>
+		<label>Sensor Humidity</label>
 		<description>Humidity for MiHackedTempSensor</description>
 		<category>Humidity</category>
+		<state min="0" max="100" pattern="%.2f %" readOnly="true"/>
 	</channel-type>
 
 	<channel-type id="sensor-rtti">
