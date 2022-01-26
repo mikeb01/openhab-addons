@@ -1,0 +1,32 @@
+import org.openhab.core.library.types.OnOffType
+
+val toggleHeatFan = [ OnOffType status, String mode, int measuredTemp, int setTemp |
+    logInfo("foo", "status={}, mode={}, measuredTemp={}, setTemp={}", status, mode, measuredTemp, setTemp)
+    if (status == OFF) {
+        return
+    }
+    if ("Fan".equals(mode)) {
+        if (measuredTemp <= setTemp) {
+            // Flip to heating
+        }
+    } else if ("Heating".equals(mode)) {
+        if (measuredTemp > setTemp) {
+            // Flip to fan
+        }
+    }
+]
+
+rule "Startup"
+when
+    System started or
+    Item Office_MeasuredRoomTemperature changed
+then
+    val measuredTemp = Office_MeasuredRoomTemperature.state as Number
+    val setTemp = Office_SetTemperature.state as Number
+    toggleHeatFan.apply(
+        Office_OperationStatus.state,
+        Office_OperationMode.state.toString,
+        measuredTemp.intValue,
+        setTemp.intValue)
+end
+

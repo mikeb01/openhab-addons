@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<thing:thing-descriptions bindingId="mihackedtempsensor"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xmlns:thing="https://openhab.org/schemas/thing-description/v1.0.0"
+	xsi:schemaLocation="https://openhab.org/schemas/thing-description/v1.0.0 https://openhab.org/schemas/thing-description-1.0.0.xsd">
+
+	<bridge-type id="dbus-bridge" listed="true">
+		<label>DBus MiHackedTempSensor Bridge</label>
+		<description>DBus based bridge that for Mi Temperature sensors that have had the firmware flashed</description>
+	</bridge-type>
+
+	<thing-type id="sensor">
+		<supported-bridge-type-refs>
+			<bridge-type-ref id="dbus-bridge"/>
+		</supported-bridge-type-refs>
+
+		<label>MiHackedTempSensor Binding Thing</label>
+		<description>Sample thing for MiHackedTempSensor Binding</description>
+
+		<channels>
+			<channel id="temperature" typeId="sensor-temperature"/>
+			<channel id="humidity" typeId="sensor-humidity"/>
+			<channel id="batteryLevel" typeId="system.battery-level"/>
+			<channel id="rtti" typeId="sensor-rtti"/>
+		</channels>
+
+		<representation-property>uniqueId</representation-property>
+
+		<config-description>
+			<parameter name="macAddress" type="text" required="true">
+				<context>mac-address</context>
+				<label>MAC Address</label>
+				<description>MAC Address of the bluetooth sensor</description>
+			</parameter>
+		</config-description>
+
+	</thing-type>
+
+	<channel-type id="sensor-temperature">
+		<item-type>Number:Temperature</item-type>
+		<label>Sensor Temperature</label><!-- Use uppercase words, except prepositions. 2-3 words, max 25 chars -->
+		<description>Temperature for MiHackedTempSensor</description>
+		<category>Temperature</category>
+	</channel-type>
+
+	<channel-type id="sensor-humidity">
+		<item-type>Number:Dimensionless</item-type>
+		<label>Sensor Humidity</label><!-- Use uppercase words, except prepositions. 2-3 words, max 25 chars -->
+		<description>Humidity for MiHackedTempSensor</description>
+		<category>Humidity</category>
+	</channel-type>
+
+	<channel-type id="sensor-rtti">
+		<item-type>Number</item-type>
+		<label>Signal Strength</label>
+		<description>Signal Strength</description>
+	</channel-type>
+</thing:thing-descriptions>
