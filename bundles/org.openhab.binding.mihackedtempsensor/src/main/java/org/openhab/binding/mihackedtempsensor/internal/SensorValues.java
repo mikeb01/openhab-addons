@@ -17,6 +17,7 @@ import static org.openhab.binding.mihackedtempsensor.internal.MiHackedTempSensor
 import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
+import org.eclipse.jdt.annotation.Nullable;
 import org.freedesktop.dbus.DBusMap;
 import org.freedesktop.dbus.types.Variant;
 
@@ -47,10 +48,10 @@ public class SensorValues {
             throw new IllegalArgumentException("'org.bluez.Device1' key not found");
         }
 
-        final String address = readProperty(device1Properties, "Address");
-        final Short rssi = readProperty(device1Properties, "RSSI");
-        final DBusMap<String, Variant<?>> serviceData = readProperty(device1Properties, "ServiceData");
-        byte[] data = readProperty(serviceData, DEVICE_STATUS_UUID);
+        final String address = readProperty(device1Properties, "Address", null);
+        final Short rssi = readProperty(device1Properties, "RSSI", (short)0);
+        final DBusMap<String, Variant<?>> serviceData = readProperty(device1Properties, "ServiceData", null);
+        byte[] data = readProperty(serviceData, DEVICE_STATUS_UUID, null);
 
         if (data.length < 13) {
             throw new IllegalArgumentException("Array to short for measured values: " + data.length);
@@ -63,10 +64,14 @@ public class SensorValues {
         return new SensorValues(address, rssi, temperature, humidity, battery);
     }
 
-    static <T> T readProperty(final Map<String, Variant<?>> properties, final String key) {
+    static <T> T readProperty(final Map<String, Variant<?>> properties, final String key, @Nullable T defaultValue) {
         final Variant<?> variant = properties.get(key);
-        if (null == variant) {
-            throw new IllegalArgumentException("'" + key + "' not found");
+        if (null == variant ) {
+            if (null == defaultValue) {
+                throw new IllegalArgumentException("'" + key + "' not found");
+            } else {
+                return defaultValue;
+            }
         }
 
         // noinspection unchecked
