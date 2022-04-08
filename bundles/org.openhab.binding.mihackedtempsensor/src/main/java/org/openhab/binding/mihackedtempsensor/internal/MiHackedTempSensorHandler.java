@@ -70,9 +70,9 @@ public class MiHackedTempSensorHandler extends BaseThingHandler {
         this.sensorValues = sensorValues;
         updateState(CHANNEL_TEMPERATURE,
                 new DecimalType(BigDecimal.valueOf(sensorValues.getTemperature()).setScale(2, RoundingMode.HALF_EVEN)));
-        updateState(CHANNEL_BATTERY_LEVEL, new DecimalType(sensorValues.getBatteryLevel()));
+        updateState(CHANNEL_BATTERY_LEVEL, new DecimalType((long) sensorValues.getBatteryLevel()));
         updateState(CHANNEL_HUMIDITY,
                 new DecimalType(BigDecimal.valueOf(sensorValues.getHumidity()).setScale(2, RoundingMode.HALF_EVEN)));
-        updateState(CHANNEL_RSSI, new DecimalType(sensorValues.getRssi()));
+        updateState(CHANNEL_RSSI, new DecimalType((long) sensorValues.getRssi()));
     }
 }
