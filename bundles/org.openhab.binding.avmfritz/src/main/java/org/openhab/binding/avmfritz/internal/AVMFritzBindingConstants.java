@@ -119,6 +119,7 @@ public class AVMFritzBindingConstants {
     public static final String CHANNEL_LOCKED = "locked";
     public static final String CHANNEL_DEVICE_LOCKED = "device_locked";
     public static final String CHANNEL_APPLY_TEMPLATE = "apply_template";
+    public static final String CHANNEL_CONNECTED_DEVICES = "connected_devices";
     public static final String CHANNEL_TEMPERATURE = "temperature";
     public static final String CHANNEL_HUMIDITY = "humidity";
     public static final String CHANNEL_ENERGY = "energy";

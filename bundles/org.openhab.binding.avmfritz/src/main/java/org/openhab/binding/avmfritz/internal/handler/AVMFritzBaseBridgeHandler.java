@@ -12,14 +12,33 @@
  */
 package org.openhab.binding.avmfritz.internal.handler;
 
-import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.*;
-import static org.openhab.binding.avmfritz.internal.dto.DeviceModel.ETSUnitInfoModel.*;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.BINDING_ID;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.CHANNEL_APPLY_TEMPLATE;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_BLINDS;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_COLOR_BULB;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_CONTACT;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_DIMMABLE_BULB;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_ON_OFF;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.DEVICE_HAN_FUN_SWITCH;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.GROUP_HEATING;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.GROUP_HEATING_THING_TYPE;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.GROUP_SWITCH;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.GROUP_SWITCH_THING_TYPE;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.INVALID_PATTERN;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.SUPPORTED_BUTTON_THING_TYPES_UIDS;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.SUPPORTED_DEVICE_THING_TYPES_UIDS;
+import static org.openhab.binding.avmfritz.internal.AVMFritzBindingConstants.SUPPORTED_HEATING_THING_TYPES;
+import static org.openhab.binding.avmfritz.internal.dto.DeviceModel.ETSUnitInfoModel.HAN_FUN_INTERFACE_ALERT;
+import static org.openhab.binding.avmfritz.internal.dto.DeviceModel.ETSUnitInfoModel.HAN_FUN_INTERFACE_ON_OFF;
+import static org.openhab.binding.avmfritz.internal.dto.DeviceModel.ETSUnitInfoModel.HAN_FUN_INTERFACE_SIMPLE_BUTTON;
 
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
@@ -40,6 +59,7 @@ import org.openhab.binding.avmfritz.internal.dto.templates.TemplateModel;
 import org.openhab.binding.avmfritz.internal.hardware.FritzAhaStatusListener;
 import org.openhab.binding.avmfritz.internal.hardware.FritzAhaWebInterface;
 import org.openhab.binding.avmfritz.internal.hardware.callbacks.FritzAhaApplyTemplateCallback;
+import org.openhab.binding.avmfritz.internal.hardware.callbacks.FritzAhaConnectedDevicesCallback;
 import org.openhab.binding.avmfritz.internal.hardware.callbacks.FritzAhaUpdateCallback;
 import org.openhab.binding.avmfritz.internal.hardware.callbacks.FritzAhaUpdateTemplatesCallback;
 import org.openhab.core.library.types.StringType;
@@ -101,9 +121,14 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
     protected final List<FritzAhaStatusListener> listeners = new CopyOnWriteArrayList<>();
 
     /**
-     * keeps track of the {@link ChannelUID} for the 'apply_template' {@link Channel}
+     * keeps track of the {@link ChannelUID} for the 'apply_template' Channel
      */
     private final ChannelUID applyTemplateChannelUID;
+    /**
+     * keeps track of the {@link ChannelUID} for the connected_devices Channel
+     */
+    @Nullable
+    private final ChannelUID connectedDevicesChannelUID;
 
     /**
      * Constructor
@@ -111,12 +136,14 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
      * @param bridge Bridge object representing a FRITZ!Box
      */
     public AVMFritzBaseBridgeHandler(Bridge bridge, HttpClient httpClient,
-            AVMFritzDynamicCommandDescriptionProvider commandDescriptionProvider) {
+            AVMFritzDynamicCommandDescriptionProvider commandDescriptionProvider,
+            @Nullable ChannelUID connectedDevicesChannelUID) {
         super(bridge);
         this.httpClient = httpClient;
         this.commandDescriptionProvider = commandDescriptionProvider;
 
         applyTemplateChannelUID = new ChannelUID(bridge.getUID(), CHANNEL_APPLY_TEMPLATE);
+        this.connectedDevicesChannelUID = connectedDevicesChannelUID;
     }
 
     @Override
@@ -229,6 +256,10 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
             logger.debug("Poll FRITZ!Box for updates {}", thing.getUID());
             FritzAhaUpdateCallback updateCallback = new FritzAhaUpdateCallback(webInterface, this);
             webInterface.asyncGet(updateCallback);
+            if (null != connectedDevicesChannelUID) {
+                webInterface.asyncGet(new FritzAhaConnectedDevicesCallback(webInterface, this));
+            }
+
             if (isLinked(applyTemplateChannelUID)) {
                 logger.debug("Poll FRITZ!Box for templates {}", thing.getUID());
                 FritzAhaUpdateTemplatesCallback templateCallback = new FritzAhaUpdateTemplatesCallback(webInterface,
@@ -392,5 +423,13 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
      */
     public void handleRefreshCommand() {
         scheduler.submit(this::poll);
+    }
+
+    public void connectedDevices(final ArrayList<String> names) {
+        if (null == connectedDevicesChannelUID) {
+            return;
+        }
+
+        updateState(Objects.requireNonNull(connectedDevicesChannelUID), new StringType(String.join(",", names)));
     }
 }

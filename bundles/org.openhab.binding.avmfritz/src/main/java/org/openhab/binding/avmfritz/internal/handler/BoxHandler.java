@@ -24,6 +24,7 @@ import org.openhab.binding.avmfritz.internal.callmonitor.CallMonitor;
 import org.openhab.binding.avmfritz.internal.config.AVMFritzBoxConfiguration;
 import org.openhab.binding.avmfritz.internal.hardware.FritzAhaWebInterface;
 import org.openhab.core.thing.Bridge;
+import org.openhab.core.thing.ChannelUID;
 import org.openhab.core.thing.ThingStatus;
 import org.openhab.core.thing.ThingStatusDetail;
 import org.openhab.core.types.State;
@@ -50,7 +51,8 @@ public class BoxHandler extends AVMFritzBaseBridgeHandler {
      */
     public BoxHandler(Bridge bridge, HttpClient httpClient,
             AVMFritzDynamicCommandDescriptionProvider commandDescriptionProvider) {
-        super(bridge, httpClient, commandDescriptionProvider);
+        super(bridge, httpClient, commandDescriptionProvider,
+                new ChannelUID(bridge.getUID(), CHANNEL_CONNECTED_DEVICES));
     }
 
     @Override
