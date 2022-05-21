@@ -15,6 +15,7 @@
 			<channel id="active_call" typeId="active_call"/>
 			<channel id="call_state" typeId="call_state"/>
 			<channel id="apply_template" typeId="apply_template"/>
+			<channel id="connected_devices" typeId="connected_devices"/>
 		</channels>
 
 		<representation-property>ipAddress</representation-property>

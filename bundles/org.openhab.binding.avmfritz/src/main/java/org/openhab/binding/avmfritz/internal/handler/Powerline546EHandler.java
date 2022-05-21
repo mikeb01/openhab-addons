@@ -75,7 +75,7 @@ public class Powerline546EHandler extends AVMFritzBaseBridgeHandler implements F
      */
     public Powerline546EHandler(Bridge bridge, HttpClient httpClient,
             AVMFritzDynamicCommandDescriptionProvider commandDescriptionProvider) {
-        super(bridge, httpClient, commandDescriptionProvider);
+        super(bridge, httpClient, commandDescriptionProvider, null);
     }
 
     @Override

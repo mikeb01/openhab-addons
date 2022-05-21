@@ -42,6 +42,12 @@
 		<description>Apply template for device(s).</description>
 		<state pattern="%s"/>
 	</channel-type>
+	<channel-type id="connected_devices">
+		<item-type>String</item-type>
+		<label>Connected Devices</label>
+		<description>List of devices connected to Fritz!Box network.</description>
+		<state pattern="%s" readOnly="true"/>
+	</channel-type>
 
 	<!-- Channel definitions of all FRITZ! devices -->
 	<channel-type id="mode">
