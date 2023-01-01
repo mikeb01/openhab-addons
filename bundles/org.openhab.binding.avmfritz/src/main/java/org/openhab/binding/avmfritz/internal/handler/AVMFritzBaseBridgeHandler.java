@@ -257,7 +257,7 @@ public abstract class AVMFritzBaseBridgeHandler extends BaseBridgeHandler {
             FritzAhaUpdateCallback updateCallback = new FritzAhaUpdateCallback(webInterface, this);
             webInterface.asyncGet(updateCallback);
             if (null != connectedDevicesChannelUID) {
-                webInterface.asyncGet(new FritzAhaConnectedDevicesCallback(webInterface, this));
+                new FritzAhaConnectedDevicesCallback(webInterface, this).requestDevices();
             }
 
             if (isLinked(applyTemplateChannelUID)) {

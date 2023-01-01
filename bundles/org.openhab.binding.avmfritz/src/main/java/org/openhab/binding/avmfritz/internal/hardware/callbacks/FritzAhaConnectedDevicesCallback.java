@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2021 Contributors to the openHAB project
+ * Copyright (c) 2010-2022 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -13,6 +13,8 @@
 package org.openhab.binding.avmfritz.internal.hardware.callbacks;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jetty.http.HttpMethod;
@@ -34,6 +36,8 @@ public class FritzAhaConnectedDevicesCallback extends FritzAhaReauthCallback {
 
     private final Logger logger = LoggerFactory.getLogger(FritzAhaConnectedDevicesCallback.class);
     private final AVMFritzBaseBridgeHandler handler;
+    private final Map<String, String> formData = new HashMap<>();
+    private int retries = 1;
 
     /**
      * Constructor for retryable authentication
@@ -45,11 +49,31 @@ public class FritzAhaConnectedDevicesCallback extends FritzAhaReauthCallback {
             final AVMFritzBaseBridgeHandler handler) {
         super("data.lua", "", webIface, HttpMethod.GET, 1);
         this.handler = handler;
+
+        formData.put("xhr", "1");
+        formData.put("page", "overview");
+        formData.put("xhrId", "all");
+        formData.put("useajax", "1");
+        formData.put("no_sidrenew", "");
+    }
+
+    public void requestDevices() {
+        getWebIface().asyncPost(getPath(), formData, this);
     }
 
     public void execute(int status, String response) {
-        super.execute(status, response);
-        if (isValidRequest()) {
+        boolean validRequest = false;
+        if (status != 200 || "".equals(response) || ".".equals(response)) {
+            if (retries >= 1) {
+                getWebIface().authenticate();
+                retries--;
+                getWebIface().asyncPost(getPath(), formData, this);
+            }
+        } else {
+            validRequest = true;
+        }
+
+        if (validRequest) {
             final JsonElement rootElement = JsonParser.parseString(response);
 
             final JsonElement dataElement = rootElement.getAsJsonObject().get("data");

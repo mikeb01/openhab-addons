@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -26,8 +27,10 @@ import org.eclipse.jdt.annotation.NonNullByDefault;
 import org.eclipse.jdt.annotation.Nullable;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
+import org.eclipse.jetty.client.util.FormContentProvider;
 import org.eclipse.jetty.client.util.StringContentProvider;
 import org.eclipse.jetty.http.HttpMethod;
+import org.eclipse.jetty.util.Fields;
 import org.openhab.binding.avmfritz.internal.config.AVMFritzBoxConfiguration;
 import org.openhab.binding.avmfritz.internal.handler.AVMFritzBaseBridgeHandler;
 import org.openhab.binding.avmfritz.internal.hardware.callbacks.FritzAhaApplyTemplateCallback;
@@ -292,6 +295,27 @@ public class FritzAhaWebInterface {
         httpClient.newRequest(getURL(path)).timeout(config.asyncTimeout, TimeUnit.MILLISECONDS).method(HttpMethod.POST)
                 .onResponseSuccess(postExchange).onResponseFailure(postExchange)
                 .content(new StringContentProvider(addSID(args), StandardCharsets.UTF_8)).send(postExchange);
+        return postExchange;
+    }
+
+    /**
+     * Sends an HTTP POST request using encoded form data using the asynchronous client
+     *
+     * @param path Path of the requested resource
+     * @param formData Data for the request encoded as form data
+     * @param callback Callback to handle the response with
+     * @return a content exchange representing the request
+     */
+    public FritzAhaContentExchange asyncPost(String path, Map<String, String> formData, FritzAhaCallback callback) {
+        FritzAhaContentExchange postExchange = new FritzAhaContentExchange(callback);
+        final Fields fields = new Fields();
+        formData.forEach(fields::add);
+        if (null != sid) {
+            fields.add("sid", sid);
+        }
+        httpClient.newRequest(getURL(path)).timeout(config.asyncTimeout, TimeUnit.MILLISECONDS).method(HttpMethod.POST)
+                .onResponseSuccess(postExchange).onResponseFailure(postExchange)
+                .content(new FormContentProvider(fields)).send(postExchange);
         return postExchange;
     }
 
