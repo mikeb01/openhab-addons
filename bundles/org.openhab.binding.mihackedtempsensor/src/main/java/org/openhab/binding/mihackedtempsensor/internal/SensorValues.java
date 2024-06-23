@@ -1,5 +1,5 @@
 /**
- * Copyright (c) 2010-2022 Contributors to the openHAB project
+ * Copyright (c) 2010-2023 Contributors to the openHAB project
  *
  * See the NOTICE file(s) distributed with this work for additional
  * information.
@@ -49,7 +49,7 @@ public class SensorValues {
         }
 
         final String address = readProperty(device1Properties, "Address", null);
-        final Short rssi = readProperty(device1Properties, "RSSI", (short)0);
+        final Short rssi = readProperty(device1Properties, "RSSI", (short) 0);
         final DBusMap<String, Variant<?>> serviceData = readProperty(device1Properties, "ServiceData", null);
         byte[] data = readProperty(serviceData, DEVICE_STATUS_UUID, null);
 
@@ -66,7 +66,7 @@ public class SensorValues {
 
     static <T> T readProperty(final Map<String, Variant<?>> properties, final String key, @Nullable T defaultValue) {
         final Variant<?> variant = properties.get(key);
-        if (null == variant ) {
+        if (null == variant) {
             if (null == defaultValue) {
                 throw new IllegalArgumentException("'" + key + "' not found");
             } else {
